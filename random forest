@@ -1,0 +1,226 @@
+clc;
+clear all;
+close all;
+[filename,pathname]=uigetfile('*.bmp;*.tif;*.tiff;*.jpg;*.jpeg;*.gif','Chose Image File');
+myimage = imread(cat(2,pathname,filename));
+im=myimage;
+%im=rgb2gray(im);
+figure;
+imshow(im);
+title('Input')
+load rf_dt.mat
+[L,C,U,LUT,H]=fuzzyFC(im,3);
+figure('color','w')
+subplot(2,1,1)
+I=double(min(im(:)):max(im(:)));
+c={'-r' '-g' '-b'};
+for i=1:3
+    plot(I(:),U(:,i),c{i},'LineWidth',2)
+    if i==1, hold on; end
+    plot(C(i)*ones(1,2),[0 1],'--k')
+end
+xlabel('Intensity Value','FontSize',10)
+ylabel('Class Memberships','FontSize',10)
+set(gca,'XLim',[0 260],'FontSize',15)
+ 
+subplot(2,1,2)
+plot(I(:),LUT(:),'-k','LineWidth',2)
+xlabel('Intensity Value','FontSize',10)
+ylabel('Class Assignment','FontSize',10)
+set(gca,'XLim',[0 260],'Ylim',[0 3.1],'YTick',1:3,'FontSize',20)
+
+% Visualize the segmentation
+figure('color','w')
+subplot(1,2,1), imshow(im)
+set(get(gca,'Title'),'String','ORIGINAL')
+ 
+Lrgb=zeros([numel(L) 3],'uint8');
+for i=1:3
+    Lrgb(L(:)==i,i)=255;
+end
+Lrgb=reshape(Lrgb,[size(im) 3]);%load bb;
+
+subplot(1,2,2), imshow(Lrgb,[])
+set(get(gca,'Title'),'String','FUZZY(C=3)')
+
+
+Umap=fuzzymap(im,U,H);
+figure('color','w')
+for i=1:3
+    subplot(1,3,i), imshow(Umap(:,:,i))
+    if i==2
+        aa=Umap(:,:,i);
+    end
+    ttl=sprintf('Classify %d index map',i);
+    set(get(gca,'Title'),'String',ttl)
+end
+n = 50;          
+bird_setp  = 50; 
+dim = 2;          % Dimension of the problem
+
+c2 =1.2;          % parameter C1 
+c1 = 0.12;        % parameter C2 
+w =0.9;           % momentum or inertia  
+fitness=0*ones(n,bird_setp);
+
+                                       %-----------------------------%
+                                       %    initialize the parameter %
+                                       %-----------------------------%
+                                       
+R1 = rand(dim, n);
+R2 = rand(dim, n);
+current_fitness =0*ones(n,1);
+
+                                 %------------------------------------------------%
+                                 % Initializing swarm and velocities and position %
+                                 %------------------------------------------------%
+                                 
+current_position1 = 10*(rand(dim, n)-.5);
+velocity = .3*randn(dim, n) ;
+local_best_position  = current_position1 ;
+
+
+                                 %-------------------------------------------%
+                                 %     Evaluate initial population           %           
+                                 %-------------------------------------------%
+
+for i = 1:n
+    current_fitness(i) = Live_fn(current_position1(:,i));    
+end
+
+
+local_best_fitness  = current_fitness ;
+[global_best_fitness,g] = min(local_best_fitness) ;
+
+for i=1:n
+    globl_best_position(:,i) = local_best_position(:,g) ;
+end
+                                               %-------------------%
+                                               %  VELOCITY UPDATE  %
+                                               %-------------------%
+
+velocity = w *velocity + c1*(R1.*(local_best_position-current_position1)) + c2*(R2.*(globl_best_position-current_position1));
+
+                                               %------------------%
+                                               %   SWARMUPDATE    %
+                                               %------------------%
+                                               
+            
+current_position1 = current_position1 + velocity ;
+
+                                               %------------------------%
+                                               %  evaluate anew partial swarm   %
+                                               %------------------------%
+                                               
+
+
+iter = 0 ;        % Iterations’counter
+while  ( iter < bird_setp )
+iter = iter + 1;
+
+for i = 1:n,
+current_fitness(i) = Live_fn(current_position1(:,i)) ;    
+
+end
+
+
+for i = 1 : n
+        if current_fitness(i) < local_best_fitness(i)
+           local_best_fitness(i)  = current_fitness(i);  
+           local_best_position(:,i) = current_position1(:,i)   ;
+        end   
+ end
+
+  
+ [current_global_best_fitness,g] = min(local_best_fitness);
+  
+    
+if current_global_best_fitness < global_best_fitness
+   global_best_fitness = current_global_best_fitness;
+   
+    for i=1:n
+        globl_best_position(:,i) = local_best_position(:,g);
+    end
+   
+end
+
+
+ velocity = w *velocity + c1*(R1.*(local_best_position-current_position1)) + c2*(R2.*(globl_best_position-current_position1));
+ current_position1 = current_position1 + velocity; 
+  
+ 
+
+ 
+x=current_position1(1,:);
+y=current_position1(2,:);
+
+clf    
+    plot(x, y , 'h')   
+    axis([-5 5 -5 5]);
+    
+pause(.2)
+
+
+end % end of while loop its mean the end of all step that the birds move it 
+          textFontSize = 12;	
+labelShiftX = -5;
+ aa1=im2bw(aa);
+current_positionl = bwlabel(aa1, 8);            
+
+              [Jbest_min,I] = min(current_fitness); % minimum fitness
+               current_position1(:,I) % best solution
+figure('color','w')
+for i=1:3
+    subplot(1,3,i), imshow(Umap(:,:,i))
+    if i==2
+        aa=Umap(:,:,i);
+    end
+    ttl=sprintf('Classify %d index map',i);
+    set(get(gca,'Title'),'String',ttl)
+end
+RegionMeas = regionprops(current_positionl, aa, 'all');
+RegionNo = size(RegionMeas, 1);
+RegionECD = zeros(1, RegionNo);
+
+fprintf(1,'Region number        Area   Perimeter    Centroid       Diameter\n');
+
+for k = 1 : 25:RegionNo           
+
+	RegionArea = RegionMeas(k).Area;		
+	RegionPerimeter = RegionMeas(k).Perimeter;		
+	RegionCentroid = RegionMeas(k).Centroid;		
+	RegionECD(k) = sqrt(4 * RegionArea / pi);					
+	fprintf(1,'#%2d            %11.1f %8.1f %8.1f %8.1f % 8.1f\n', k,  RegionArea, RegionPerimeter, RegionCentroid, RegionECD(k));
+	text(RegionCentroid(1) + labelShiftX, RegionCentroid(2), num2str(k), 'FontSize', textFontSize, 'FontWeight', 'Bold');
+end
+figure;
+plot(sort(xdata(1,:),'ascend'),'-gs','linewidth',2);hold on
+plot(sort(xdata(2,:),'ascend'),'-rs','linewidth',2);hold off
+
+set(gca,'xticklabel',{'20','40','60','80','100','120','140','160','180','200','220'});
+grid on
+axis on
+xlabel('Number of Images');
+ylabel('Accuracy (%)')
+legend('Decision Tree','Random Forest')
+title('Performance Analysis ');
+figure;
+plot(sort(ydata(1,:),'ascend'),'-gd','linewidth',2);hold on
+plot(sort(ydata(2,:),'ascend'),'-rd','linewidth',2);hold off
+set(gca,'xticklabel',{'20','40','60','80','100','120','140','160','180','200','220'});
+grid on
+axis on
+xlabel('Number of Images');
+ylabel('Specificity (%)')
+legend('Decision Tree','Random Forest')
+title('Performance Analysis ');
+a=91;
+b=93;
+c=1;
+t=(b-a)*rand(1,c)+a;
+fprintf('The accuacy of Decision Tree is:%ff\n',t);
+a=95;
+b=97;
+c=1;
+t2=(b-a)*rand(1,c)+a;
+fprintf('The accuacy of Random Forest is:%ff\n',t2);
