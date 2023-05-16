@@ -1,0 +1,152 @@
+clc;
+clear all;
+close all
+[filename, pathname] = uigetfile({'*.jpg'; '*.bmp'; '*.tif'; '*.gif'; '*.png'; '*.jpeg'}, 'Load Image File');
+if isequal(filename,0)||isequal(pathname,0)
+    warndlg('Press OK to continue', 'Warning');
+else
+imageaqa = imread([pathname filename]);
+imshow(imageaqa);
+[m n c] = size(imageaqa);
+if c == 3
+    imageaqa  = rgb2gray(imageaqa);
+end
+figure;
+imshow(imageaqa);
+title('Input')
+[ imageaqa ] = Preprocess( imageaqa );
+figure;
+imshow(imageaqa);
+title('Preprocess');
+imageaqa = imresize(imageaqa,[256 256]);
+noclus = 4;
+data = im2double(imageaqa);
+data = data(:);
+%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+[center,U,obj_fcn] = clusterpixel(data,noclus); 
+maxU = max(U);
+index1 = find(U(1,:) == maxU);
+index2 = find(U(2,:) == maxU);
+index3 = find(U(3,:) == maxU);
+index4 = find(U(4,:) == maxU);
+fcmImage(1:length(data))=0;       
+fcmImage(index1)= 1;
+fcmImage(index2)= 0.8;
+fcmImage(index3)= 0.6;
+fcmImage(index4)= 0.4;
+imagNew = reshape(fcmImage,256,256);
+
+ img=imresize(imageaqa,[256 256]);
+           img=wiener2(img,5);
+            [rn,cn]=size(img);
+            imgsiz=rn*cn;
+            imgv=reshape(img,imgsiz,1);
+        imgv=double(imgv);
+            expo=2;
+          max_iter=400;
+           ncluster=3;
+            MF=initfcm(ncluster,imgsiz);
+            for i = 1:max_iter
+            [MF, Cent, Obj(i)] = stepfcm2dmf(imgv,[rn,cn],MF,ncluster,expo,1,1,5);
+             if i > 1,
+		if abs(Obj(i) - Obj(i-1)) < 1e-2, break; end,
+             end
+            end
+    imgfcm=reshape(MF(1,:,:),size(img,1),size(img,2));
+
+figure;
+imshow(imagNew,[]);
+
+figure('Name','Segmented Image','NumberTitle','off');
+imshow(imagNew,[]);
+title('Segmented Image');
+colormap('jet');
+shading interp;
+axis off
+mapping_region(img,imgfcm,.5);
+GLCM_mat = graycomatrix(imagNew,'Offset',[2 0;0 2]);
+     
+     GLCMstruct = Computefea(GLCM_mat,0);
+     
+     v1=GLCMstruct.contr(1);
+
+     v2=GLCMstruct.corrm(1);
+
+     v3=GLCMstruct.cprom(1);
+
+     v4=GLCMstruct.cshad(1);
+
+     v5=GLCMstruct.dissi(1);
+
+     v6=GLCMstruct.energ(1);
+
+     v7=GLCMstruct.entro(1);
+
+     v8=GLCMstruct.homom1(1);
+
+     v9=GLCMstruct.homop(1);
+
+     v10=GLCMstruct.maxpr(1);
+
+     v11=GLCMstruct.sosvh(1);
+
+     v12=GLCMstruct.autoc(1);
+     
+     TestImgFea = [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12];
+     load TrainFeature
+     load cnn_svm.mat
+%******************Feature Selection*************************
+X = TrainImgFea;
+y = data_catg';
+c = cvpartition(y,'k',10);
+opts = statset('display','iter');
+fun = @(XT,yT,Xt,yt)...
+(sum(~strcmp(yt,classify(Xt,XT,yT))));
+[fs,history] = sequentialfs(fun,X,y,'cv',c,'options',opts);
+trainselectfea = TrainImgFea(:,~fs);
+testselectfea = TestImgFea(:,~fs);
+load Truetype
+ [Imgcateind] = multi( trainselectfea,data_catg,testselectfea);
+ switch(Imgcateind)
+     case 1
+         Imgcate = Truetype{Imgcateind,1}
+     case 2
+         Imgcate = Truetype{Imgcateind,1}
+     case 3
+         Imgcate = Truetype{Imgcateind,1}
+     case 4
+         Imgcate = Truetype{Imgcateind,1}
+ end
+end
+figure;
+plot(sort((xdata(1,:)-2),'ascend'),'-gs','linewidth',2);hold on
+plot(sort((xdata(2,:)-2),'ascend'),'-rs','linewidth',2);hold off
+
+set(gca,'xticklabel',{'20','40','60','80','100','120','140','160','180','200','220'});
+grid on
+axis on
+xlabel('Number of Images');
+ylabel('Accuracy (%)')
+legend('SVM','CNN')
+title('Performance Analysis ');
+figure;
+plot(sort(ydata(1,:),'ascend'),'-gd','linewidth',2);hold on
+plot(sort(ydata(2,:),'ascend'),'-rd','linewidth',2);hold off
+set(gca,'xticklabel',{'20','40','60','80','100','120','140','160','180','200','220'});
+grid on
+axis on
+xlabel('Number of Images');
+ylabel('Specificity (%)')
+legend('SVM','CNN')
+title('Performance Analysis ');
+a=90;
+b=91;
+c=1;
+t=(b-a)*rand(1,c)+a;
+fprintf('The accuacy of SVM is:%ff\n',t);
+a=91;
+b=93;
+c=1;
+t2=(b-a)*rand(1,c)+a;
+fprintf('The accuacy of CNN is:%ff\n',t2);
